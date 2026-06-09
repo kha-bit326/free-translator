@@ -7,7 +7,7 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
-    html { height: 100%; }
+    html { height: 100%; overflow-x: hidden; max-width: 100vw; }
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -18,6 +18,8 @@
       display: flex;
       flex-direction: column;
       overflow: hidden;
+      overflow-x: hidden;
+      max-width: 100vw;
       padding-bottom: env(safe-area-inset-bottom);
     }
 
@@ -57,12 +59,17 @@
     }
     select {
       flex: 1;
-      padding: 10px 12px;
+      min-width: 0;
+      padding: 10px 8px;
       background: #1e293b;
       border: 1px solid #334155;
       border-radius: 8px;
       color: #e2e8f0;
-      font-size: 0.9rem;
+      font-size: 16px;
+      -webkit-appearance: none;
+      appearance: none;
+      text-overflow: ellipsis;
+      overflow: hidden;
     }
     .swap-btn {
       background: #334155;
