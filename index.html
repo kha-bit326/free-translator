@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Free Translator</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      padding: 16px 20px;
+      background: #1e293b;
+      border-bottom: 1px solid #334155;
+      text-align: center;
+    }
+    header h1 { font-size: 1.3rem; font-weight: 700; color: #38bdf8; }
+    header p { font-size: 0.75rem; color: #64748b; margin-top: 2px; }
+
+    .tabs {
+      display: flex;
+      background: #1e293b;
+      border-bottom: 1px solid #334155;
+    }
+    .tab {
+      flex: 1;
+      padding: 12px;
+      text-align: center;
+      font-size: 0.85rem;
+      cursor: pointer;
+      color: #64748b;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+    .tab.active { color: #38bdf8; border-bottom-color: #38bdf8; }
+
+    .panel { display: none; flex: 1; flex-direction: column; padding: 16px; gap: 12px; }
+    .panel.active { display: flex; }
+
+    .lang-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    select {
+      flex: 1;
+      padding: 10px 12px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      color: #e2e8f0;
+      font-size: 0.9rem;
+    }
+    .swap-btn {
+      background: #334155;
+      border: none;
+      border-radius: 8px;
+      width: 36px;
+      height: 36px;
+      color: #e2e8f0;
+      font-size: 1.1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .swap-btn:hover { background: #475569; }
+
+    textarea {
+      width: 100%;
+      padding: 12px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      color: #e2e8f0;
+      font-size: 0.95rem;
+      resize: vertical;
+      min-height: 100px;
+      font-family: inherit;
+    }
+    textarea:focus { outline: none; border-color: #38bdf8; }
+    textarea[readonly] { background: #0f172a; color: #94a3b8; }
+
+    .btn-row { display: flex; gap: 8px; }
+    .btn {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .btn-primary { background: #0284c7; color: white; }
+    .btn-primary:hover { background: #0369a1; }
+    .btn-mic { background: #334155; color: #e2e8f0; }
+    .btn-mic:hover { background: #475569; }
+    .btn-mic.recording { background: #dc2626; animation: pulse 1s infinite; }
+    .btn-speak { background: #1e293b; border: 1px solid #334155; color: #94a3b8; padding: 8px 12px; flex: none; }
+    .btn-speak:hover { border-color: #38bdf8; color: #38bdf8; }
+
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+
+    .status {
+      font-size: 0.8rem;
+      color: #64748b;
+      text-align: center;
+      min-height: 20px;
+    }
+    .status.error { color: #f87171; }
+    .status.success { color: #34d399; }
+
+    /* 会話タブ */
+    .conv-area {
+      flex: 1;
+      overflow-y: auto;
+      background: #1e293b;
+      border-radius: 8px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-height: 200px;
+    }
+    .bubble {
+      max-width: 85%;
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+    .bubble.left {
+      background: #334155;
+      align-self: flex-start;
+      border-bottom-left-radius: 4px;
+    }
+    .bubble.right {
+      background: #0284c7;
+      align-self: flex-end;
+      border-bottom-right-radius: 4px;
+    }
+    .bubble .original { font-size: 0.75rem; opacity: 0.65; margin-top: 4px; }
+
+    .conv-controls {
+      display: flex;
+      gap: 8px;
+    }
+    .conv-btn {
+      flex: 1;
+      padding: 14px;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.2s;
+    }
+    .conv-btn .icon { font-size: 1.4rem; }
+    .conv-btn.left-btn { background: #334155; color: #e2e8f0; }
+    .conv-btn.left-btn:hover { background: #475569; }
+    .conv-btn.right-btn { background: #0284c7; color: white; }
+    .conv-btn.right-btn:hover { background: #0369a1; }
+    .conv-btn.recording { animation: pulse 1s infinite; }
+    .conv-btn.left-btn.recording { background: #dc2626; }
+    .conv-btn.right-btn.recording { background: #b91c1c; }
+
+    /* 履歴タブ */
+    .history-list {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .history-item {
+      background: #1e293b;
+      border-radius: 8px;
+      padding: 12px;
+      border: 1px solid #334155;
+    }
+    .history-item .langs { font-size: 0.75rem; color: #64748b; margin-bottom: 4px; }
+    .history-item .original-text { font-size: 0.9rem; color: #94a3b8; }
+    .history-item .translated-text { font-size: 0.95rem; color: #e2e8f0; margin-top: 4px; }
+    .history-item .speak-btn {
+      margin-top: 6px;
+      background: none;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      color: #64748b;
+      padding: 4px 10px;
+      font-size: 0.75rem;
+      cursor: pointer;
+    }
+    .history-item .speak-btn:hover { border-color: #38bdf8; color: #38bdf8; }
+
+    .history-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .clear-btn {
+      background: none;
+      border: 1px solid #475569;
+      border-radius: 6px;
+      color: #94a3b8;
+      padding: 6px 12px;
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+    .clear-btn:hover { border-color: #f87171; color: #f87171; }
+
+    .empty { text-align: center; color: #475569; padding: 40px 0; }
+
+    .char-count { font-size: 0.75rem; color: #475569; text-align: right; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🌐 Free Translator</h1>
+  <p>MyMemory API · Web Speech API · 完全無料</p>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('translate')">翻訳</div>
+  <div class="tab" onclick="switchTab('conversation')">会話</div>
+  <div class="tab" onclick="switchTab('history')">履歴</div>
+</div>
+
+<!-- 翻訳タブ -->
+<div id="tab-translate" class="panel active">
+  <div class="lang-row">
+    <select id="from-lang">
+      <option value="ja">🇯🇵 日本語</option>
+      <option value="en">🇺🇸 英語</option>
+      <option value="zh">🇨🇳 中国語</option>
+      <option value="ko">🇰🇷 韓国語</option>
+      <option value="fr">🇫🇷 フランス語</option>
+      <option value="de">🇩🇪 ドイツ語</option>
+      <option value="es">🇪🇸 スペイン語</option>
+      <option value="pt">🇵🇹 ポルトガル語</option>
+      <option value="it">🇮🇹 イタリア語</option>
+      <option value="th">🇹🇭 タイ語</option>
+      <option value="ar">🇸🇦 アラビア語</option>
+      <option value="ru">🇷🇺 ロシア語</option>
+    </select>
+    <button class="swap-btn" onclick="swapLangs()">⇄</button>
+    <select id="to-lang">
+      <option value="en">🇺🇸 英語</option>
+      <option value="ja">🇯🇵 日本語</option>
+      <option value="zh">🇨🇳 中国語</option>
+      <option value="ko">🇰🇷 韓国語</option>
+      <option value="fr">🇫🇷 フランス語</option>
+      <option value="de">🇩🇪 ドイツ語</option>
+      <option value="es">🇪🇸 スペイン語</option>
+      <option value="pt">🇵🇹 ポルトガル語</option>
+      <option value="it">🇮🇹 イタリア語</option>
+      <option value="th">🇹🇭 タイ語</option>
+      <option value="ar">🇸🇦 アラビア語</option>
+      <option value="ru">🇷🇺 ロシア語</option>
+    </select>
+  </div>
+
+  <div>
+    <textarea id="input-text" placeholder="翻訳するテキストを入力..." rows="4" oninput="updateCharCount()"></textarea>
+    <div class="char-count"><span id="char-count">0</span> / 500文字</div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-mic" id="mic-btn" onclick="toggleMic()">🎤 音声入力</button>
+    <button class="btn btn-primary" onclick="translateText()">翻訳</button>
+  </div>
+
+  <div id="translate-status" class="status"></div>
+
+  <div style="position:relative;">
+    <textarea id="output-text" placeholder="翻訳結果がここに表示されます" rows="4" readonly></textarea>
+    <button class="btn btn-speak" style="position:absolute;bottom:8px;right:8px;" onclick="speakOutput()">🔊</button>
+  </div>
+</div>
+
+<!-- 会話タブ -->
+<div id="tab-conversation" class="panel" style="flex-direction:column;">
+  <div class="lang-row">
+    <select id="conv-left-lang" style="flex:1;">
+      <option value="ja">🇯🇵 日本語</option>
+      <option value="en">🇺🇸 英語</option>
+      <option value="zh">🇨🇳 中国語</option>
+      <option value="ko">🇰🇷 韓国語</option>
+      <option value="fr">🇫🇷 フランス語</option>
+      <option value="de">🇩🇪 ドイツ語</option>
+      <option value="es">🇪🇸 スペイン語</option>
+    </select>
+    <span style="color:#64748b;font-size:0.8rem;">⇄</span>
+    <select id="conv-right-lang" style="flex:1;">
+      <option value="en">🇺🇸 英語</option>
+      <option value="ja">🇯🇵 日本語</option>
+      <option value="zh">🇨🇳 中国語</option>
+      <option value="ko">🇰🇷 韓国語</option>
+      <option value="fr">🇫🇷 フランス語</option>
+      <option value="de">🇩🇪 ドイツ語</option>
+      <option value="es">🇪🇸 スペイン語</option>
+    </select>
+  </div>
+
+  <div class="conv-area" id="conv-area">
+    <div class="empty">会話を始めてください<br><small>下のボタンを押して話しかけてください</small></div>
+  </div>
+
+  <div id="conv-status" class="status"></div>
+
+  <div class="conv-controls">
+    <button class="conv-btn left-btn" id="conv-left-btn" onclick="convRecord('left')">
+      <span class="icon">🎤</span>
+      <span id="conv-left-label">左側が話す</span>
+    </button>
+    <button class="conv-btn right-btn" id="conv-right-btn" onclick="convRecord('right')">
+      <span class="icon">🎤</span>
+      <span id="conv-right-label">右側が話す</span>
+    </button>
+  </div>
+</div>
+
+<!-- 履歴タブ -->
+<div id="tab-history" class="panel">
+  <div class="history-header">
+    <span style="font-size:0.9rem;color:#94a3b8;">翻訳履歴</span>
+    <button class="clear-btn" onclick="clearHistory()">全削除</button>
+  </div>
+  <div class="history-list" id="history-list">
+    <div class="empty">履歴はありません</div>
+  </div>
+</div>
+
+<script>
+  const LANG_NAMES = {
+    ja:'日本語', en:'英語', zh:'中国語', ko:'韓国語',
+    fr:'フランス語', de:'ドイツ語', es:'スペイン語',
+    pt:'ポルトガル語', it:'イタリア語', th:'タイ語',
+    ar:'アラビア語', ru:'ロシア語'
+  };
+
+  const BCP47 = {
+    ja:'ja-JP', en:'en-US', zh:'zh-CN', ko:'ko-KR',
+    fr:'fr-FR', de:'de-DE', es:'es-ES', pt:'pt-BR',
+    it:'it-IT', th:'th-TH', ar:'ar-SA', ru:'ru-RU'
+  };
+
+  let history = JSON.parse(localStorage.getItem('ft-history') || '[]');
+  let micRecognition = null;
+  let isMicRecording = false;
+  let convRecognition = null;
+  let isConvRecording = false;
+  let currentConvSide = null;
+
+  function switchTab(name) {
+    document.querySelectorAll('.tab').forEach((t, i) => {
+      t.classList.toggle('active', ['translate','conversation','history'][i] === name);
+    });
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    if (name === 'history') renderHistory();
+  }
+
+  // --- 翻訳API ---
+  async function callTranslate(text, from, to) {
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${from}|${to}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data.responseStatus === 200) return data.responseData.translatedText;
+    throw new Error(data.responseDetails || '翻訳エラー');
+  }
+
+  function setStatus(id, msg, type = '') {
+    const el = document.getElementById(id);
+    el.textContent = msg;
+    el.className = 'status' + (type ? ' ' + type : '');
+  }
+
+  async function translateText() {
+    const text = document.getElementById('input-text').value.trim();
+    if (!text) return;
+    const from = document.getElementById('from-lang').value;
+    const to = document.getElementById('to-lang').value;
+    if (from === to) { setStatus('translate-status', '同じ言語が選択されています', 'error'); return; }
+
+    setStatus('translate-status', '翻訳中...');
+    document.getElementById('output-text').value = '';
+
+    try {
+      const result = await callTranslate(text, from, to);
+      document.getElementById('output-text').value = result;
+      setStatus('translate-status', '完了', 'success');
+      addHistory(text, result, from, to);
+    } catch (e) {
+      setStatus('translate-status', e.message, 'error');
+    }
+  }
+
+  function swapLangs() {
+    const f = document.getElementById('from-lang');
+    const t = document.getElementById('to-lang');
+    const tmp = f.value;
+    f.value = t.value;
+    t.value = tmp;
+    const inp = document.getElementById('input-text').value;
+    const out = document.getElementById('output-text').value;
+    document.getElementById('input-text').value = out;
+    document.getElementById('output-text').value = inp;
+    updateCharCount();
+  }
+
+  function updateCharCount() {
+    const len = document.getElementById('input-text').value.length;
+    document.getElementById('char-count').textContent = len;
+  }
+
+  // --- 音声入力 ---
+  function toggleMic() {
+    if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+      setStatus('translate-status', 'このブラウザは音声認識に対応していません', 'error');
+      return;
+    }
+    if (isMicRecording) {
+      micRecognition && micRecognition.stop();
+      return;
+    }
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    micRecognition = new SpeechRecognition();
+    micRecognition.lang = BCP47[document.getElementById('from-lang').value] || 'ja-JP';
+    micRecognition.continuous = false;
+    micRecognition.interimResults = false;
+
+    micRecognition.onstart = () => {
+      isMicRecording = true;
+      const btn = document.getElementById('mic-btn');
+      btn.textContent = '⏹ 停止';
+      btn.classList.add('recording');
+      setStatus('translate-status', '録音中...');
+    };
+    micRecognition.onresult = (e) => {
+      document.getElementById('input-text').value = e.results[0][0].transcript;
+      updateCharCount();
+      translateText();
+    };
+    micRecognition.onerror = (e) => { setStatus('translate-status', '音声認識エラー: ' + e.error, 'error'); };
+    micRecognition.onend = () => {
+      isMicRecording = false;
+      const btn = document.getElementById('mic-btn');
+      btn.textContent = '🎤 音声入力';
+      btn.classList.remove('recording');
+    };
+    micRecognition.start();
+  }
+
+  // --- 音声読み上げ ---
+  function speakText(text, lang) {
+    if (!('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    const utt = new SpeechSynthesisUtterance(text);
+    utt.lang = BCP47[lang] || lang;
+    window.speechSynthesis.speak(utt);
+  }
+
+  function speakOutput() {
+    const text = document.getElementById('output-text').value;
+    if (!text) return;
+    speakText(text, document.getElementById('to-lang').value);
+  }
+
+  // --- 会話タブ ---
+  function convRecord(side) {
+    if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+      setStatus('conv-status', 'このブラウザは音声認識に対応していません', 'error');
+      return;
+    }
+    if (isConvRecording) {
+      convRecognition && convRecognition.stop();
+      return;
+    }
+
+    const fromLang = side === 'left'
+      ? document.getElementById('conv-left-lang').value
+      : document.getElementById('conv-right-lang').value;
+    const toLang = side === 'left'
+      ? document.getElementById('conv-right-lang').value
+      : document.getElementById('conv-left-lang').value;
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    convRecognition = new SpeechRecognition();
+    convRecognition.lang = BCP47[fromLang] || 'ja-JP';
+    convRecognition.continuous = false;
+    convRecognition.interimResults = false;
+
+    const btn = document.getElementById(side === 'left' ? 'conv-left-btn' : 'conv-right-btn');
+    const label = document.getElementById(side === 'left' ? 'conv-left-label' : 'conv-right-label');
+
+    convRecognition.onstart = () => {
+      isConvRecording = true;
+      currentConvSide = side;
+      btn.classList.add('recording');
+      label.textContent = '⏹ 停止';
+      setStatus('conv-status', '録音中...');
+    };
+
+    convRecognition.onresult = async (e) => {
+      const text = e.results[0][0].transcript;
+      setStatus('conv-status', '翻訳中...');
+      try {
+        const translated = await callTranslate(text, fromLang, toLang);
+        addConvBubble(text, translated, side);
+        speakText(translated, toLang);
+        setStatus('conv-status', '');
+        addHistory(text, translated, fromLang, toLang);
+      } catch (err) {
+        setStatus('conv-status', err.message, 'error');
+      }
+    };
+
+    convRecognition.onerror = (e) => { setStatus('conv-status', '音声認識エラー: ' + e.error, 'error'); };
+    convRecognition.onend = () => {
+      isConvRecording = false;
+      btn.classList.remove('recording');
+      label.textContent = side === 'left' ? '左側が話す' : '右側が話す';
+    };
+
+    convRecognition.start();
+  }
+
+  function addConvBubble(original, translated, side) {
+    const area = document.getElementById('conv-area');
+    const empty = area.querySelector('.empty');
+    if (empty) empty.remove();
+
+    const div = document.createElement('div');
+    div.className = 'bubble ' + side;
+    div.innerHTML = `<div>${translated}</div><div class="original">${original}</div>`;
+    area.appendChild(div);
+    area.scrollTop = area.scrollHeight;
+  }
+
+  // --- 履歴 ---
+  function addHistory(original, translated, from, to) {
+    history.unshift({ original, translated, from, to, time: Date.now() });
+    if (history.length > 100) history.pop();
+    localStorage.setItem('ft-history', JSON.stringify(history));
+  }
+
+  function renderHistory() {
+    const list = document.getElementById('history-list');
+    if (history.length === 0) {
+      list.innerHTML = '<div class="empty">履歴はありません</div>';
+      return;
+    }
+    list.innerHTML = history.map((h, i) => `
+      <div class="history-item">
+        <div class="langs">${LANG_NAMES[h.from] || h.from} → ${LANG_NAMES[h.to] || h.to}</div>
+        <div class="original-text">${h.original}</div>
+        <div class="translated-text">${h.translated}</div>
+        <button class="speak-btn" onclick="speakText('${h.translated.replace(/'/g,"\\'")}','${h.to}')">🔊 読み上げ</button>
+      </div>
+    `).join('');
+  }
+
+  function clearHistory() {
+    if (!confirm('履歴を全削除しますか？')) return;
+    history = [];
+    localStorage.removeItem('ft-history');
+    renderHistory();
+  }
+</script>
+</body>
+</html>
