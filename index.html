@@ -370,6 +370,20 @@
   let convRecognition = null;
   let isConvRecording = false;
   let currentConvSide = null;
+  let audioUnlocked = false;
+
+  // iPhoneの音声制限を解除：初回タップ時に無音を再生してアンロック
+  function unlockAudio() {
+    if (audioUnlocked || !window.speechSynthesis) return;
+    const u = new SpeechSynthesisUtterance('');
+    u.volume = 0;
+    window.speechSynthesis.speak(u);
+    audioUnlocked = true;
+    document.removeEventListener('touchstart', unlockAudio, true);
+    document.removeEventListener('click', unlockAudio, true);
+  }
+  document.addEventListener('touchstart', unlockAudio, true);
+  document.addEventListener('click', unlockAudio, true);
 
   function switchTab(name) {
     document.querySelectorAll('.tab').forEach((t, i) => {
@@ -446,8 +460,8 @@
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     micRecognition = new SpeechRecognition();
     micRecognition.lang = BCP47[document.getElementById('from-lang').value] || 'ja-JP';
-    micRecognition.continuous = false;
-    micRecognition.interimResults = false;
+    micRecognition.continuous = true;
+    micRecognition.interimResults = true;
 
     micRecognition.onstart = () => {
       isMicRecording = true;
@@ -457,9 +471,21 @@
       setStatus('translate-status', '録音中...');
     };
     micRecognition.onresult = (e) => {
-      document.getElementById('input-text').value = e.results[0][0].transcript;
-      updateCharCount();
-      translateText();
+      let interim = '';
+      let finalText = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) finalText += e.results[i][0].transcript;
+        else interim += e.results[i][0].transcript;
+      }
+      if (finalText) {
+        document.getElementById('input-text').value = finalText;
+        updateCharCount();
+        micRecognition && micRecognition.stop();
+        translateText();
+      } else if (interim) {
+        document.getElementById('input-text').value = interim;
+        updateCharCount();
+      }
     };
     micRecognition.onerror = (e) => { setStatus('translate-status', '音声認識エラー: ' + e.error, 'error'); };
     micRecognition.onend = () => {
@@ -507,8 +533,8 @@
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     convRecognition = new SpeechRecognition();
     convRecognition.lang = BCP47[fromLang] || 'ja-JP';
-    convRecognition.continuous = false;
-    convRecognition.interimResults = false;
+    convRecognition.continuous = true;
+    convRecognition.interimResults = true;
 
     const btn = document.getElementById(side === 'left' ? 'conv-left-btn' : 'conv-right-btn');
     const label = document.getElementById(side === 'left' ? 'conv-left-label' : 'conv-right-label');
@@ -522,14 +548,19 @@
     };
 
     convRecognition.onresult = async (e) => {
-      const text = e.results[0][0].transcript;
+      let finalText = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) finalText += e.results[i][0].transcript;
+      }
+      if (!finalText) return;
+      convRecognition && convRecognition.stop();
       setStatus('conv-status', '翻訳中...');
       try {
-        const translated = await callTranslate(text, fromLang, toLang);
-        addConvBubble(text, translated, side);
+        const translated = await callTranslate(finalText, fromLang, toLang);
+        addConvBubble(finalText, translated, side);
         speakText(translated, toLang);
         setStatus('conv-status', '');
-        addHistory(text, translated, fromLang, toLang);
+        addHistory(finalText, translated, fromLang, toLang);
       } catch (err) {
         setStatus('conv-status', err.message, 'error');
       }
